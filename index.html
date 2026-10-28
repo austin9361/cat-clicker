@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dog Clicker Ultimate</title>
+<!--
+FIREBASE RULES (Realtime Database > Rules tab). Paste this and publish:
+{"rules":{"scores":{".read":true,".write":true},"chat":{".read":true,".write":true}}}
+(The "chat" part is needed for the chat box. The leaderboard uses "scores".)
+-->
+<style>
+:root{--panel:rgba(255,250,245,.9);--ink:#3b2a1f;--red:#d9534f;--line:rgba(0,0,0,.3)}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:Georgia,"Times New Roman",serif;color:var(--ink);background:#8b7a6b url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTsd83tG5KMHufB0c1BSc7NcjiNrd94MeD-cbfLptQNyw&s=10") center center / cover no-repeat fixed}
+#app{display:grid;grid-template-columns:1fr 320px 300px;gap:12px;padding:12px;height:100vh}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;overflow:auto}
+.panel h2{margin:0 0 8px;text-align:center;font-size:20px;text-decoration:underline}
+#left{display:flex;flex-direction:column;gap:10px;min-height:0}
+#stats{text-align:center;flex:none}
+#barks{font-size:34px;font-weight:bold}
+#sub{font-size:14px}
+#who{font-size:13px;opacity:.8}
+#btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:none}
+#news,#resetBtn{font:inherit;font-size:16px;padding:8px 12px;background:var(--panel);border:1px solid var(--line);border-radius:4px;cursor:pointer;color:inherit}
+#news{max-width:280px}
+#suggestBtn{font-size:13px;padding:4px 8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:inherit;text-decoration:none;cursor:pointer}
+#dogWrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+#dog{width:min(340px,70vw);height:min(340px,70vw);border:0;padding:0;margin:0;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:transform .06s}
+#dog:active{transform:scale(.94)}
+#dog img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none}
+#mid{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}
+#mid .panel{flex:none}
+.item{display:block;width:100%;text-align:left;font:inherit;font-size:15px;color:inherit;background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:4px;padding:8px;margin-bottom:6px;cursor:pointer}
+.item:hover{background:#fff}
+.item.cant{opacity:.55}
+.item .row{display:flex;justify-content:space-between;gap:8px}
+.item .cost{color:var(--red);font-weight:bold;white-space:nowrap}
+.item .desc{font-size:13px;opacity:.85;margin-top:3px}
+#board{margin:0;padding-left:24px;font-size:15px}
+#board li{margin-bottom:4px}
+#board li.me{font-weight:bold;color:var(--red)}
+#board .sc{float:right}
+.note{font-size:13px;opacity:.8;margin-top:6px}
+#chatLog{height:180px;overflow-y:auto;background:rgba(255,255,255,.6);border:1px solid var(--line);border-radius:4px;padding:6px;font-size:14px}
+.msg{margin-bottom:4px;overflow-wrap:anywhere}
+.msg b{color:var(--red)}
+.msg .tm{opacity:.6;font-size:11px;margin-left:4px}
+#chatRow{display:flex;gap:6px;margin-top:6px}
+#chatIn{flex:1;min-width:0;font:inherit;font-size:14px;padding:6px;border:1px solid var(--line);border-radius:4px}
+#chatSend{font:inherit;font-size:14px;padding:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;cursor:pointer;color:inherit}
+#secretBtn{position:fixed;right:8px;bottom:6px;z-index:15;background:none;border:0;font-size:14px;opacity:.15;cursor:pointer;padding:4px}
+#secretBtn:hover{opacity:.9}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:min(480px,92vw);background:#fffaf5;border:1px solid var(--line);border-radius:6px;padding:10px 14px;box-shadow:0 4px 14px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s;z-index:70;text-align:center}
+#toast.show{opacity:1}
+#overlay,#creditsBox{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+#creditsBox{z-index:60}
+#overlay.hidden,#creditsBox.hidden{display:none}
+.card{background:#fffaf5;border-radius:10px;padding:24px;max-width:420px;width:100%;text-align:center}
+.card h1{margin:0 0 8px;font-size:26px}
+.card input{width:100%;font:inherit;font-size:18px;padding:10px;margin:12px 0 8px;border:1px solid var(--line);border-radius:6px;text-align:center}
+.card button{font:inherit;font-size:18px;padding:10px 18px;border:0;border-radius:6px;background:var(--red);color:#fff;cursor:pointer}
+#creditsText p{margin:6px 0}
+#nameErr{color:var(--red);min-height:20px;margin-top:8px;font-size:14px}
+@media(max-width:1000px){#app{grid-template-columns:1fr;height:auto}#dogWrap{padding:20px 0}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="left">
+    <div id="stats" class="panel">
+      <div id="barks">0</div>
+      <div id="sub">Barks &middot; <span id="ps">0</span>/sec &middot; <span id="pc">1</span> per click</div>
+      <div id="who"></div>
+    </div>
+    <div id="btns">
+      <button id="news">the Meow Times</button>
+      <button id="resetBtn">Reset Progress</button>
+      <a id="suggestBtn" href="#" target="_blank" rel="noopener noreferrer">Suggestions</a>
+    </div>
+    <div id="dogWrap"><button id="dog" aria-label="Pet the dog"><img id="dogImg" alt="Dog"></button></div>
+  </div>
+  <div id="mid">
+    <div class="panel"><h2>Buildings</h2><div id="buildings"></div></div>
+    <div class="panel"><h2>Leaderboard</h2><ol id="board"></ol><div id="boardNote" class="note"></div></div>
+    <div class="panel">
+      <h2>Chat</h2>
+      <div id="chatLog"></div>
+      <div id="chatRow"><input id="chatIn" maxlength="200" placeholder="Say something..." autocomplete="off"><button id="chatSend">Send</button></div>
+      <div id="chatNote" class="note"></div>
+    </div>
+  </div>
+  <div class="panel"><h2>Upgrades</h2><div id="upgrades"></div></div>
+</div>
+<button id="secretBtn" aria-label="Credits">&#128062;</button>
+<div id="toast"></div>
+<div id="creditsBox" class="hidden">
+  <div class="card">
+    <h1>Credits</h1>
+    <div id="creditsText"></div>
+    <button id="creditsClose">Close</button>
+  </div>
+</div>
+<div id="overlay">
+  <div class="card">
+    <h1>Dog Clicker Ultimate</h1>
+    <p>Pick a username to start. It shows on the leaderboard.</p>
+    <input id="nameIn" maxlength="16" placeholder="Username" autocomplete="off">
+    <button id="nameBtn">Start playing</button>
+    <div id="nameErr"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ================================ EDIT ME ================================ */
+
+/* Your Firebase database URL */
+var DB_URL='https://leasder-988e6-default-rtdb.firebaseio.com/';
+
+/* The link the Suggestions button opens (paste a full link starting with https://) */
+var SUGGEST_URL='https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+
+/* The secret credits. Each line in quotes is one line on screen. Add or remove lines freely.
+   Keep a comma at the end of every line. */
+var CREDITS=[
+'Dog Clicker Ultimate',
+'Made by: Austin and The Ai Claude',
+'Dog photos: they belong to me, charlie, and whever else sent me images (only 2 of the dogs are mine)',
+'Thanks for playing!',
+'',
+'',
+''
+];
+
+/* Dog photos. Paste a file name from your Photos folder (like IMG_1234.jpg)
+   OR a full link starting with https:// between the quotes. Each photo shows 5 seconds.
+   Empty slots ('') are skipped, so you can leave them blank. */
+var PHOTO_NAMES=[
+'image.webp',
+'IMG_0660.webp',
+'IMG_1215.webp',
+'IMG_1753.webp',
+'IMG_2136.jpg',
+'IMG_2399.webp',
+'IMG_3864.webp',
+'IMG_5364.webp',
+'IMG_7407.webp',
+'IMG_9069.webp',
+'IMG_9283.webp',
+'IMG_7698.webp',
+'IMG_7687.webp',
+'image (1).webp',
+'ffae06c1-1295-401a-85f9-9a428f8425d4.jpg',
+'fcff1256-ddef-40a4-b6ff-ec0cc02df831.jpg',
+'a00e876c-c0c8-4be4-ab57-4f7155fbb854.jpg',
+'6DD9C670-94D7-4220-82B9-B19B81446F3C.webp',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+''
+];
+
+/* ========================================================================== */
+
+var DB=DB_URL.replace(/\/+$/,'');
+var dbOn=/^https:\/\//.test(DB);
+var SAVE_KEY='dogClickerUltimate_save';
+var USER_KEY='dogClickerUltimate_user';
+var ID_KEY='dogClickerUltimate_id';
+var mem={};
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return mem[k]||null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){mem[k]=v}}
+function $(id){return document.getElementById(id)}
+
+/* ---------- photos ---------- */
+var PHOTOS=PHOTO_NAMES.filter(function(f){return f&&f.trim()}).map(function(f){
+  f=f.trim();
+  return /^https?:\/\//.test(f)?f:'Photos/'+f;
+});
+
+/* ---------- game data ---------- */
+var HEADLINES=[
+"BREAKING: A Chihuahua has discovered infinite treats!",
+"BREAKING: Don't eat dogs, they're not food!",
+"BREAKING: Ollie and Izzy are the best dogs in the world!",
+"BREAKING: Dogs are taking over the world!",
+"BREAKING: Dogs are more popular than iPhones!",
+"BREAKING: Dogs are better than cats! That's a fact!",
+"BREAKING: Dogs deserve all the treats in the world!",
+"BREAKING: Dogs are man's best friend!",
+"BREAKING: Everyone needs a dog!",
+"BREAKING: Don't put dogs in the microwave; that's where food goes!",
+"BREAKING: If you don't like dogs, you go to jail!",
+"BREAKING: Charlie has a dog named Kit!",
+"BREAKING: I ran out of ideas!",
+"BREAKING: Dogs are better than cookies!",
+"BREAKING: Boxer puppies are now the cutest dog breed!",
+"BREAKING: Local puppy steals 400 bones!",
+"SCIENCE: Experts confirm that all dogs are good boys.",
+"ECONOMY: Bone prices reach an all-time high!",
+"WEATHER: 100% chance of zoomies today!",
+"EXCLUSIVE: Golden Retriever elected Mayor!",
+"SPORTS: Local corgi wins the neighborhood race!",
+"INVESTIGATION: Who ate the last dog treat?",
+"BREAKING: ultra super secrete thing its so hard to get and its so rare oh i ran out of room to type it"
+];
+var BUILDINGS=[
+{id:'dogTreat',name:'Cat Treats',base:15,ps:1},
+{id:'puppyPark',name:'Kitty Parks',base:100,ps:4},
+{id:'doggyDaycare',name:'Kitty Daycares',base:500,ps:15},
+{id:'boneFactory',name:'Treat Factories',base:3000,ps:75},
+{id:'cloningLab',name:'Cloning Labs',base:25000,ps:450}
+];
+var UPGRADES=[
+{id:'goldenBrush',name:'Brush',cost:50,desc:'+2 meows per click.',click:2},
+{id:'premiumKibble',name:'Kibble',cost:250,desc:'Doubles cat Treat production.',b:'dogTreat',mult:2},
+{id:'puppyLove',name:'Love',cost:500,desc:'+3 meows per click.',click:3},
+{id:'parkExpansion',name:'Expansion',cost:1000,desc:'Doubles kitty Park production.',b:'puppyPark',mult:2},
+{id:'daycareTraining',name:'Trainers',cost:2500,desc:'Doubles kitty Daycare production.',b:'doggyDaycare',mult:2},
+{id:'infiniteTreatRecipe',name:'Treat Recipe',cost:5000,desc:'Doubles cat Treat production again.',b:'dogTreat',mult:2},
+{id:'factoryUpgrade',name:'Bone Press',cost:7500,desc:'Doubles treat Factory production.',b:'boneFactory',mult:2},
+{id:'megaBrush',name:'Golden Brush',cost:10000,desc:'+5 meows per click.',click:5},
+{id:'megaPark',name:'Puppy Paradise',cost:15000,desc:'Multiplies kitty Park production by 5.',b:'puppyPark',mult:5},
+{id:'daycareEmpire',name:'Empire',cost:30000,desc:'Multiplies kitty Daycare production by 5.',b:'doggyDaycare',mult:5},
+{id:'cloneResearch',name:'Puppy Science',cost:50000,desc:'Doubles Cloning Lab production.',b:'cloningLab',mult:2}
+];
+
+/* ---------- state ---------- */
+var S={barks:0,total:0,own:{},up:{}};
+BUILDINGS.forEach(function(b){S.own[b.id]=0});
+UPGRADES.forEach(function(u){S.up[u.id]=false});
+try{
+  var raw=lsGet(SAVE_KEY);
+  if(raw){
+    var d=JSON.parse(raw);
+    S.barks=+d.barks||0;S.total=+d.total||0;
+    BUILDINGS.forEach(function(b){S.own[b.id]=Math.max(0,Math.floor(+(d.own&&d.own[b.id])||0))});
+    UPGRADES.forEach(function(u){S.up[u.id]=!!(d.up&&d.up[u.id])});
+  }
+}catch(e){}
+function save(){lsSet(SAVE_KEY,JSON.stringify(S))}
+
+/* ---------- math ---------- */
+var SUF=['','k','M','B','T','Qa','Qi'];
+function fmt(n){
+  if(n<1000)return String(Math.floor(n));
+  var i=0,v=n;
+  while(v>=1000&&i<SUF.length-1){v/=1000;i++}
+  var s=v>=100?v.toFixed(0):v>=10?v.toFixed(1):v.toFixed(2);
+  if(s.indexOf('.')>-1)s=s.replace(/\.?0+$/,'');
+  return s+SUF[i];
+}
+function perClick(){var c=1;UPGRADES.forEach(function(u){if(S.up[u.id]&&u.click)c+=u.click});return c}
+function bMult(id){var m=1;UPGRADES.forEach(function(u){if(S.up[u.id]&&u.b===id)m*=u.mult});return m}
+function perSec(){var s=0;BUILDINGS.forEach(function(b){s+=S.own[b.id]*b.ps*bMult(b.id)});return s}
+function cost(b){return Math.ceil(b.base*Math.pow(1.15,S.own[b.id]))}
+
+/* ---------- build the lists ---------- */
+var bRows={};
+BUILDINGS.forEach(function(b){
+  var el=document.createElement('button');
+  el.className='item';
+  el.innerHTML='<div class="row"><span><b class="nm"></b> : <span class="own">0</span></span><span class="cost"></span></div><div class="desc"></div>';
+  el.querySelector('.nm').textContent=b.name;
+  el.addEventListener('click',function(){buyB(b)});
+  $('buildings').appendChild(el);
+  bRows[b.id]={el:el,own:el.querySelector('.own'),cost:el.querySelector('.cost'),desc:el.querySelector('.desc')};
+});
+var uRows={};
+function renderUpgrades(){
+  var box=$('upgrades');box.innerHTML='';uRows={};
+  var any=false;
+  UPGRADES.forEach(function(u){
+    if(S.up[u.id])return;
+    any=true;
+    var el=document.createElement('button');
+    el.className='item';
+    el.innerHTML='<div class="row"><b class="nm"></b><span class="cost"></span></div><div class="desc"></div>';
+    el.querySelector('.nm').textContent=u.name;
+    el.querySelector('.cost').textContent=fmt(u.cost)+' Meows';
+    el.querySelector('.desc').textContent=u.desc;
+    el.addEventListener('click',function(){buyU(u)});
+    box.appendChild(el);
+    uRows[u.id]=el;
+  });
+  if(!any){var p=document.createElement('div');p.className='note';p.textContent='All upgrades bought!';box.appendChild(p)}
+}
+function buyB(b){var c=cost(b);if(S.barks>=c){S.barks-=c;S.own[b.id]++;render()}}
+function buyU(u){if(!S.up[u.id]&&S.barks>=u.cost){S.barks-=u.cost;S.up[u.id]=true;renderUpgrades();render();save()}}
+
+function render(){
+  $('barks').textContent=fmt(Math.floor(S.barks));
+  $('ps').textContent=fmt(perSec());
+  $('pc').textContent=fmt(perClick());
+  BUILDINGS.forEach(function(b){
+    var r=bRows[b.id],c=cost(b);
+    r.own.textContent=S.own[b.id];
+    r.cost.textContent=fmt(c)+' Meows';
+    r.desc.textContent=fmt(b.ps*bMult(b.id))+' Meows per second each';
+    r.el.classList.toggle('cant',S.barks<c);
+  });
+  UPGRADES.forEach(function(u){
+    if(uRows[u.id])uRows[u.id].classList.toggle('cant',S.barks<u.cost);
+  });
+}
+
+/* ---------- reset progress ---------- */
+$('resetBtn').addEventListener('click',function(){
+  if(!confirm('Are you sure you want to reset all your progress? This cannot be undone.'))return;
+
+  S.barks=0;
+  S.total=0;
+
+  BUILDINGS.forEach(function(b){
+    S.own[b.id]=0;
+  });
+
+  UPGRADES.forEach(function(u){
+    S.up[u.id]=false;
+  });
+
+  lastSent=-1;
+  renderUpgrades();
+  render();
+  save();
+  submitScore();
+});
+
+/* ---------- clicking, ticking, saving ---------- */
+$('dog').addEventListener('click',function(){var c=perClick();S.barks+=c;S.total+=c;render()});
+var last=performance.now();
+setInterval(function(){
+  var now=performance.now();
+  var dt=Math.min((now-last)/1000,60);last=now;
+  var g=perSec()*dt;
+  if(g>0){S.barks+=g;S.total+=g}
+  render();
+},100);
+setInterval(save,5000);
+document.addEventListener('visibilitychange',function(){if(document.hidden){save();submitScore()}});
+window.addEventListener('beforeunload',save);
+
+/* ---------- dog photos: new one every 5 seconds ---------- */
+var img=$('dogImg'),pi=PHOTOS.length?Math.floor(Math.random()*PHOTOS.length):0;
+function showPhoto(i,tries){
+  if(!PHOTOS.length)return;
+  pi=i;
+  img.onerror=function(){if(tries<PHOTOS.length)showPhoto((i+1)%PHOTOS.length,tries+1)};
+  img.src=PHOTOS[i];
+}
+showPhoto(pi,0);
+setInterval(function(){showPhoto((pi+1)%PHOTOS.length,0)},5000);
+PHOTOS.forEach(function(p){var x=new Image();x.src=p});
+
+/* ---------- toast + the Bark Times ---------- */
+var tt;
+function toast(title,text){
+  var t=$('toast');t.innerHTML='';
+  var b=document.createElement('b');b.textContent=title;
+  t.appendChild(b);t.appendChild(document.createElement('br'));t.appendChild(document.createTextNode(text));
+  t.classList.add('show');clearTimeout(tt);
+  tt=setTimeout(function(){t.classList.remove('show')},4500);
+}
+$('news').addEventListener('click',function(){toast('THE BARK TIMES',HEADLINES[Math.floor(Math.random()*HEADLINES.length)])});
+
+/* ---------- suggestions button ---------- */
+var sb=$('suggestBtn');
+if(/^https?:\/\/(?!PASTE)/.test(SUGGEST_URL)){
+  sb.href=SUGGEST_URL;
+}else{
+  sb.addEventListener('click',function(e){e.preventDefault();toast('Suggestions','The suggestions link has not been set yet.')});
+}
+
+/* ---------- secret credits ---------- */
+(function(){
+  var box=$('creditsText');
+  CREDITS.forEach(function(line){
+    if(!line||!line.trim())return;
+    var p=document.createElement('p');p.textContent=line;box.appendChild(p);
+  });
+  function openC(){$('creditsBox').classList.remove('hidden')}
+  function closeC(){$('creditsBox').classList.add('hidden')}
+  $('secretBtn').addEventListener('click',openC);
+  $('creditsClose').addEventListener('click',closeC);
+  $('creditsBox').addEventListener('click',function(e){if(e.target===$('creditsBox'))closeC()});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeC()});
+})();
+
+/* ---------- username + leaderboard ---------- */
+var user=lsGet(USER_KEY);
+var myId=lsGet(ID_KEY);
+if(!myId){myId=Math.random().toString(36).slice(2)+Date.now().toString(36);lsSet(ID_KEY,myId)}
+function keyOf(name){return encodeURIComponent(name.toLowerCase())}
+
+function claimName(name){
+  if(!dbOn)return Promise.resolve({ok:true});
+  return fetch(DB+'/scores/'+keyOf(name)+'.json').then(function(r){
+    if(!r.ok)throw new Error('bad');
+    return r.json();
+  }).then(function(d){
+    if(d&&d.id!==myId)return {ok:false,msg:'That name is already taken. Try another.'};
+    return {ok:true};
+  }).catch(function(){return {ok:true}});
+}
+
+var lastSent=-1;
+function submitScore(){
+  if(!dbOn||!user)return Promise.resolve();
+  var sc=Math.floor(S.total);
+  if(sc===lastSent)return Promise.resolve();
+  var url=DB+'/scores/'+keyOf(user)+'.json';
+  return fetch(url).then(function(r){return r.json()}).then(function(d){
+    if(d&&d.id!==myId)return;
+    return fetch(url,{method:'PUT',body:JSON.stringify({n:user,score:sc,id:myId})}).then(function(p){if(p.ok)lastSent=sc});
+  }).catch(function(){});
+}
+
+function drawBoard(rows){
+  var ol=$('board');ol.innerHTML='';
+  rows.forEach(function(x){
+    var li=document.createElement('li');
+    if(x.id===myId)li.className='me';
+    var sc=document.createElement('span');sc.className='sc';sc.textContent=fmt(x.score);
+    li.appendChild(document.createTextNode(x.n));li.appendChild(sc);
+    ol.appendChild(li);
+  });
+  $('boardNote').textContent=rows.length?'Score = total Meows earned.':'No scores yet. Be the first!';
+}
+function loadBoard(){
+  if(!dbOn){$('board').innerHTML='';$('boardNote').textContent='The leaderboard is not switched on yet.';return Promise.resolve()}
+  return fetch(DB+'/scores.json').then(function(r){return r.json()}).then(function(d){
+    d=d||{};
+    var rows=Object.keys(d).map(function(k){return d[k]}).filter(function(x){return x&&typeof x.score==='number'&&typeof x.n==='string'});
+    rows.sort(function(a,b){return b.score-a.score});
+    drawBoard(rows.slice(0,10));
+  }).catch(function(){$('boardNote').textContent='Leaderboard unavailable right now.'});
+}
+
+/* ---------- chat ---------- */
+var lastSig='',lastChat=0,firstChat=true;
+function loadChat(){
+  if(!dbOn){$('chatNote').textContent='Chat is not switched on yet.';return Promise.resolve()}
+  return fetch(DB+'/chat.json?orderBy=%22%24key%22&limitToLast=30').then(function(r){
+    if(!r.ok)throw new Error('bad');
+    return r.json();
+  }).then(function(d){
+    d=d||{};
+    var keys=Object.keys(d).sort();
+    var sig=keys.length?keys[keys.length-1]+'_'+keys.length:'';
+    $('chatNote').textContent=keys.length?'':'No messages yet. Say hi!';
+    if(sig===lastSig)return;
+    lastSig=sig;
+    var box=$('chatLog');
+    var atBottom=firstChat||(box.scrollHeight-box.scrollTop-box.clientHeight<40);
+    box.innerHTML='';
+    keys.forEach(function(k){
+      var x=d[k];
+      if(!x||typeof x.m!=='string'||typeof x.n!=='string')return;
+      var div=document.createElement('div');div.className='msg';
+      var nm=document.createElement('b');nm.textContent=x.n;
+      div.appendChild(nm);
+      if(typeof x.t==='number'){
+        var tm=document.createElement('span');tm.className='tm';
+        tm.textContent=new Date(x.t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        div.appendChild(tm);
+      }
+      div.appendChild(document.createTextNode(': '+x.m));
+      box.appendChild(div);
+    });
+    if(atBottom)box.scrollTop=box.scrollHeight;
+    firstChat=false;
+  }).catch(function(){$('chatNote').textContent='Chat unavailable right now. (Did you update the Firebase rules?)'});
+}
+function sendChat(){
+  if(!dbOn||!user)return;
+  var inp=$('chatIn');
+  var m=inp.value.trim().slice(0,200);
+  if(!m)return;
+  var now=Date.now();
+  if(now-lastChat<2000){$('chatNote').textContent='Slow down a little!';return}
+  lastChat=now;
+  inp.value='';
+  $('chatNote').textContent='';
+  fetch(DB+'/chat.json',{method:'POST',body:JSON.stringify({n:user,m:m,t:now,id:myId})}).then(function(r){
+    if(!r.ok)throw new Error('bad');
+    return loadChat();
+  }).catch(function(){$('chatNote').textContent='Could not send. (Did you update the Firebase rules?)'});
+}
+$('chatSend').addEventListener('click',sendChat);
+$('chatIn').addEventListener('keydown',function(e){if(e.key==='Enter')sendChat()});
+
+function begin(){
+  $('overlay').classList.add('hidden');
+  $('who').textContent='Playing as '+user;
+  submitScore().then(loadBoard);
+  loadChat();
+}
+function chooseName(){
+  var name=$('nameIn').value.trim().replace(/\s+/g,' ');
+  var err=$('nameErr');
+  if(!/^[A-Za-z0-9_\- ]{2,16}$/.test(name)){err.textContent='Use 2-16 letters, numbers, spaces, _ or -.';return}
+  $('nameBtn').disabled=true;err.textContent='Checking...';
+  claimName(name).then(function(r){
+    $('nameBtn').disabled=false;
+    if(!r.ok){err.textContent=r.msg;return}
+    user=name;lsSet(USER_KEY,name);err.textContent='';begin();
+  });
+}
+$('nameBtn').addEventListener('click',chooseName);
+$('nameIn').addEventListener('keydown',function(e){if(e.key==='Enter')chooseName()});
+setInterval(submitScore,30000);
+setInterval(loadBoard,20000);
+setInterval(loadChat,4000);
+
+renderUpgrades();
+render();
+if(user){begin()}else{$('nameIn').focus()}
+})();
+</script>
+</body>
+</html>
