@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dog Clicker Ultimate</title>
+<title>Cat Clicker Ultimate</title>
 <!--
 FIREBASE RULES (Realtime Database > Rules tab). Paste this and publish:
 {"rules":{"scores":{".read":true,".write":true},"chat":{".read":true,".write":true}}}
@@ -71,7 +71,7 @@ body{font-family:Georgia,"Times New Roman",serif;color:var(--ink);background:#8b
   <div id="left">
     <div id="stats" class="panel">
       <div id="barks">0</div>
-      <div id="sub">Barks &middot; <span id="ps">0</span>/sec &middot; <span id="pc">1</span> per click</div>
+      <div id="sub">Meows &middot; <span id="ps">0</span>/sec &middot; <span id="pc">1</span> per click</div>
       <div id="who"></div>
     </div>
     <div id="btns">
@@ -238,7 +238,7 @@ var UPGRADES=[
 ];
 
 /* ---------- state ---------- */
-var S={barks:0,total:0,own:{},up:{}};
+var S={Meows:0,total:0,own:{},up:{}};
 BUILDINGS.forEach(function(b){S.own[b.id]=0});
 UPGRADES.forEach(function(u){S.up[u.id]=false});
 try{
